@@ -4,36 +4,7 @@ resource "azurerm_resource_group" "example" {
   location = var.location
 }
 
-# Crear el servidor PostgreSQL
-resource "azurerm_postgresql_server" "example" {
-  name                = "pg-server-example"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-
-  administrator_login          = var.postgresql_admin_username
-  administrator_login_password = var.postgresql_admin_password
-  version                      = "11"
-  sku_name                     = "B_Gen5_2"
-  storage_mb                   = 5120
-  backup_retention_days        = 7
-  geo_redundant_backup_enabled = false
-
-  threat_detection_policy {
-    email_account_admins = true
-    state                = "Enabled"
-  }
-}
-
-# Base de datos PostgreSQL
-resource "azurerm_postgresql_database" "example" {
-  name                = "example-db"
-  resource_group_name = azurerm_resource_group.example.name
-  server_name         = azurerm_postgresql_server.example.name
-  charset             = "UTF8"
-  collation           = "English_United States.1252"
-}
-
-# Crear una IP pública para la máquina virtual (NGINX)
+# Crear una IP pública para la máquina virtual (NGINX y PostgreSQL)
 resource "azurerm_public_ip" "example" {
   name                = "nginx-public-ip"
   location            = azurerm_resource_group.example.location
@@ -49,7 +20,7 @@ resource "azurerm_virtual_network" "example" {
   resource_group_name = azurerm_resource_group.example.name
 }
 
-# Subnet para la VM de NGINX
+# Subnet para la VM
 resource "azurerm_subnet" "example" {
   name                 = "subnet-example"
   resource_group_name  = azurerm_resource_group.example.name
@@ -57,7 +28,7 @@ resource "azurerm_subnet" "example" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# Crear interfaz de red para la VM de NGINX
+# Crear interfaz de red para la VM
 resource "azurerm_network_interface" "example" {
   name                = "nic-example"
   location            = azurerm_resource_group.example.location
@@ -71,19 +42,20 @@ resource "azurerm_network_interface" "example" {
   }
 }
 
-# Crear la máquina virtual de NGINX
+# Crear la máquina virtual con NGINX y PostgreSQL
 resource "azurerm_linux_virtual_machine" "example" {
-  name                = "nginx-vm"
+  name                = "nginx-postgres-vm"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   network_interface_ids = [azurerm_network_interface.example.id]
   size                = var.nginx_vm_size
 
-  admin_username = "adminuser"
+  admin_username = var.admin_username
+  admin_password = var.admin_password
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+    storage_account_type = "Standard_LRS"  # Incluido en la capa gratuita
   }
 
   source_image_reference {
@@ -93,15 +65,18 @@ resource "azurerm_linux_virtual_machine" "example" {
     version   = "latest"
   }
 
-  computer_name  = "nginxvm"
-  admin_password = "Password1234!"  # Usa una clave segura.
+  computer_name = "nginxvm"
 
+  # Instalar NGINX y PostgreSQL en la VM
   custom_data = <<-EOT
               #!/bin/bash
               sudo apt-get update
-              sudo apt-get install -y nginx
+              sudo apt-get install -y nginx postgresql postgresql-contrib
               sudo systemctl start nginx
               sudo systemctl enable nginx
+              sudo systemctl start postgresql
+              sudo systemctl enable postgresql
+              sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${var.admin_password}';"
               EOT
 
   tags = {

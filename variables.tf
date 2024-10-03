@@ -8,16 +8,16 @@ variable "location" {
   default     = "East US"
 }
 
-variable "postgresql_admin_username" {
-  description = "Nombre de usuario administrador para PostgreSQL."
-  default     = "pgadmin"
-}
-
-variable "postgresql_admin_password" {
-  description = "Contraseña de administrador para PostgreSQL."
-}
-
 variable "nginx_vm_size" {
   description = "Tamaño de la máquina virtual para NGINX."
-  default     = "Standard_B1ms"
+  default     = "Standard_B1s"  # Tamaño de VM gratuito
+}
+
+variable "admin_username" {
+  description = "Nombre de usuario administrador para la VM."
+  default     = "adminuser"
+}
+
+variable "admin_password" {
+  description = "Contraseña para el administrador de la VM."
 }
